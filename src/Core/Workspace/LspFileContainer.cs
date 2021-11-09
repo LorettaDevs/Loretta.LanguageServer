@@ -64,7 +64,7 @@ namespace Loretta.LanguageServer.Workspace
         private LspFile GetLspFile(File file)
         {
             if (file is null) throw new ArgumentNullException(nameof(file));
-            Debug.Assert(_lock.IsReadLockHeld, "This method reads data therefore a read lock is required.");
+            Debug.Assert(_lock.IsReadLockHeld || _lock.IsUpgradeableReadLockHeld, "This method reads data therefore a read lock is required.");
             return new LspFile(file.DocumentUri, _script, file.SyntaxTree);
         }
 
