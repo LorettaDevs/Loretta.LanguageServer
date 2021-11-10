@@ -37,6 +37,10 @@ namespace Loretta.LanguageServer
                     var functionDeclarationStatement = (FunctionDeclarationStatementSyntax) assignment;
                     return functionDeclarationStatement.Name;
                 }
+                case SyntaxKind.SimpleFunctionName:
+                {
+                    return assignment;
+                }
                 default:
                 {
                     if (SyntaxFacts.IsCompoundAssignmentStatement(assignment.Kind()))
