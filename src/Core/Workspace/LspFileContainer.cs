@@ -64,7 +64,9 @@ namespace Loretta.LanguageServer.Workspace
         private LspFile GetLspFile(File file)
         {
             if (file is null) throw new ArgumentNullException(nameof(file));
-            Debug.Assert(_lock.IsReadLockHeld || _lock.IsUpgradeableReadLockHeld, "This method reads data therefore a read lock is required.");
+            Debug.Assert(
+                _lock.IsReadLockHeld || _lock.IsUpgradeableReadLockHeld || _lock.IsWriteLockHeld,
+                "This method reads data therefore a read lock is required.");
             return new LspFile(file.DocumentUri, _script, file.SyntaxTree);
         }
 
@@ -249,18 +251,29 @@ namespace Loretta.LanguageServer.Workspace
 
             var syntaxTree = oldFile.SyntaxTree.WithChangedText(text);
             File file;
-            _lock.EnterWriteLock();
+            LspFile newFile;
+
+            _lock.EnterUpgradeableReadLock();
             try
             {
-                file = _files[oldFile.DocumentUri];
-                file.SyntaxTree = syntaxTree;
-                _script = new Script(_script.SyntaxTrees.Replace(oldFile.SyntaxTree, syntaxTree));
+                _lock.EnterWriteLock();
+                try
+                {
+                    file = _files[oldFile.DocumentUri];
+                    file.SyntaxTree = syntaxTree;
+                    _script = new Script(_script.SyntaxTrees.Replace(oldFile.SyntaxTree, syntaxTree));
+                }
+                finally
+                {
+                    _lock.ExitWriteLock();
+                }
+                newFile = GetLspFile(file);
             }
             finally
             {
-                _lock.ExitWriteLock();
+                _lock.ExitUpgradeableReadLock();
             }
-            var newFile = GetLspFile(file);
+
             OnFileUpdated(oldFile, newFile);
             return newFile;
         }
