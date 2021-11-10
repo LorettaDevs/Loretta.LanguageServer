@@ -114,7 +114,7 @@ namespace Loretta.LanguageServer.Handlers
 
                     // Standard library hack
                     // This is REALLY BAD and I am NOT pround of it.
-                    var isntDefinedAnywhere = !variable.WriteLocations.Any();
+                    var isntDefinedAnywhere = variable.Declaration == null && !variable.WriteLocations.Any();
                     if (isntDefinedAnywhere && variable.Kind == VariableKind.Global)
                     {
                         modifiers.Add(SemanticTokenModifier.Readonly);
