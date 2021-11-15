@@ -258,3 +258,5 @@ dotnet_naming_style.camelcase_prefixed_by__s__.capitalization = camel_case
 # Severity settings
 dotnet_diagnostic.CA1303.severity = none
 dotnet_diagnostic.IDE0090.severity = silent
+# Microsoft.Extensions.Logging source generator warning about duplicate EventIds:
+dotnet_diagnostic.SYSLIB1006.severity = silent # We don't use the EventId for anything.
