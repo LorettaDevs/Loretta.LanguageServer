@@ -11,9 +11,30 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Enable output of generated files back into our Generated directory -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Generated\" />
+    <Compile Remove="$(CompilerGeneratedFilesOutputPath)/*/**/*.cs" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="$(Configuration) == 'Debug'">
+    <!--
+    This workaround is because I'm not sure how to make VSCode print trace,
+    debug and information messages, so we send them all as warnings with severity
+    prefixes.
+    To reiterate: this is a workaround for my lack of knowledge, not a VSCode issue.
+    -->
+    <DefineConstants>$(DefineConstants);LSP_LOG_WORKAROUND</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0-rc.1.21451.13" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
     <PackageReference Include="Loretta.CodeAnalysis.Lua" Version="0.2.6" />
   </ItemGroup>
 
