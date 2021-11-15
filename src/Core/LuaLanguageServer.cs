@@ -30,6 +30,21 @@ namespace Loretta.LanguageServer
         {
             _languageServer = LanguageServer.PreInit(options =>
             {
+                options.WithServerInfo(new OmniSharp.Extensions.LanguageServer.Protocol.Models.ServerInfo
+                {
+                    Name = "Loretta",
+                    Version = "0.0.2"
+                });
+                options.AddDefaultLoggingProvider();
+                options.ConfigureLogging(builder =>
+                {
+                    builder.Services.AddSingleton<ILoggerProvider, LanguageServerLoggerProvider>();
+#if DEBUG
+                    builder.SetMinimumLevel(LogLevel.Trace);
+#else
+                    builder.SetMinimumLevel(LogLevel.Information);
+#endif
+                });
                 options.WithHandler<LuaTextDocumentSyncHandler>()
                        .WithHandler<LuaDefinitionHandler>()
                        .WithHandler<LuaDocumentHighlightHandler>()
@@ -59,15 +74,6 @@ namespace Loretta.LanguageServer
         private void RegisterServices(IServiceCollection services)
         {
             services.AddSingleton<LspFileContainer>();
-            services.AddLogging(builder =>
-            {
-                builder.Services.AddSingleton<ILoggerProvider, LanguageServerLoggerProvider>();
-#if DEBUG
-                builder.SetMinimumLevel(LogLevel.Trace);
-#else
-                builder.SetMinimumLevel(LogLevel.Information);
-#endif
-            });
         }
     }
 }

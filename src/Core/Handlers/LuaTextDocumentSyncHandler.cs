@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,12 +12,12 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
+using Tsu.Numerics;
 
 namespace Loretta.LanguageServer.Handlers
 {
     internal class LuaTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
-        private static readonly Uri s_discardUri = new Uri("untitled:discard");
         private readonly ILogger<LuaTextDocumentSyncHandler> _logger;
         private readonly LspFileContainer _files;
         private readonly ILanguageServerFacade _languageServer;
@@ -50,13 +51,24 @@ namespace Loretta.LanguageServer.Handlers
             DidOpenTextDocumentParams request,
             CancellationToken cancellationToken)
         {
+            _logger.LogDocumentOpenReceived(
+                request.TextDocument.Uri,
+                request.TextDocument.LanguageId);
             if (request.TextDocument.LanguageId != LspConstants.LanguageId)
+            {
+                _logger.LogUnknownLanguageIdReceived(request.TextDocument.LanguageId);
                 return Unit.Task;
+            }
 
-            _logger.LogTrace("Opening document {documentUri}.", request.TextDocument.Uri);
+            var start = Stopwatch.GetTimestamp();
             var file = _files.GetOrAddFile(request.TextDocument.Uri, request.TextDocument.Text).Value;
+            var addEnd = Stopwatch.GetTimestamp();
             PublishDiagnostics(file);
-            _logger.LogTrace("Finished opening document.");
+            var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+            _logger.LogFinishedUpdatingDocument(
+                Duration.Format(diagnosticsPushEnd - start),
+                Duration.Format(addEnd - start),
+                Duration.Format(diagnosticsPushEnd - addEnd));
             return Unit.Task;
         }
 
@@ -64,16 +76,24 @@ namespace Loretta.LanguageServer.Handlers
             DidChangeTextDocumentParams request,
             CancellationToken cancellationToken)
         {
+            _logger.LogDocumentChangeReceived(request.TextDocument.Uri);
             if (_files.TryGetFile(request.TextDocument.Uri, out var file))
             {
+                var start = Stopwatch.GetTimestamp();
                 file = _files.UpdateFile(
                     file,
                     request.ContentChanges.Select(change => change.ToTextChange(file.Text)));
+                var updateEnd = Stopwatch.GetTimestamp();
                 PublishDiagnostics(file);
+                var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+                _logger.LogFinishedUpdatingDocument(
+                    Duration.Format(diagnosticsPushEnd - start),
+                    Duration.Format(updateEnd - start),
+                    Duration.Format(diagnosticsPushEnd - updateEnd));
             }
             else
             {
-                _logger.LogWarning("Received text document update for unknown document: {documentUri}", request.TextDocument.Uri);
+                _logger.LogTextChangeForUnknownDocumentReceived(request.TextDocument.Uri);
             }
             return Unit.Task;
         }
@@ -82,20 +102,28 @@ namespace Loretta.LanguageServer.Handlers
             DidSaveTextDocumentParams request,
             CancellationToken cancellationToken)
         {
+            _logger.LogDocumentSaveReceived(request.TextDocument.Uri);
             if (request.Text is null)
             {
-                _logger.LogWarning("Received text document save without contents for document {documentUri}", request.TextDocument.Uri);
+                _logger.LogTextChangeForUnknownDocumentReceived(request.TextDocument.Uri);
                 return Unit.Task;
             }
 
             if (_files.TryGetFile(request.TextDocument.Uri, out var file))
             {
+                var start = Stopwatch.GetTimestamp();
                 file = _files.UpdateFile(file, request.Text);
+                var updateEnd = Stopwatch.GetTimestamp();
                 PublishDiagnostics(file);
+                var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+                _logger.LogFinishedUpdatingDocument(
+                    Duration.Format(diagnosticsPushEnd - start),
+                    Duration.Format(updateEnd - start),
+                    Duration.Format(diagnosticsPushEnd - updateEnd));
             }
             else
             {
-                _logger.LogWarning("Received text document update for unknown document: {documentUri}", request.TextDocument.Uri);
+                _logger.LogTextChangeForUnknownDocumentReceived(request.TextDocument.Uri);
             }
             return Unit.Task;
         }
@@ -104,12 +132,22 @@ namespace Loretta.LanguageServer.Handlers
             DidCloseTextDocumentParams request,
             CancellationToken cancellationToken)
         {
+            _logger.LogDocumentCloseReceived(request.TextDocument.Uri);
+
+            var start = Stopwatch.GetTimestamp();
             _files.RemoveFile(request.TextDocument.Uri);
+            var removeEnd = Stopwatch.GetTimestamp();
             _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Uri = request.TextDocument.Uri,
                 Diagnostics = new Container<Diagnostic>()
             });
+            var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+            _logger.LogFinishedUpdatingDocument(
+                Duration.Format(diagnosticsPushEnd - start),
+                Duration.Format(removeEnd - start),
+                Duration.Format(diagnosticsPushEnd - removeEnd));
+
             return Unit.Task;
         }
 
