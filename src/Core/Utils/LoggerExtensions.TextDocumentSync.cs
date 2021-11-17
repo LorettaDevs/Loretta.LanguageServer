@@ -4,7 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Loretta.LanguageServer
 {
-    internal static partial class Log
+    internal static partial class LoggerExtensions
     {
         [LoggerMessage(
             Level = LogLevel.Information,
