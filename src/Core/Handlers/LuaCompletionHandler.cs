@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Loretta.CodeAnalysis;
 using Loretta.CodeAnalysis.Lua;
 using Loretta.CodeAnalysis.Lua.Syntax;
+using Loretta.LanguageServer.Utils;
 using Loretta.LanguageServer.Workspace;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Tsu.Numerics;
 
 namespace Loretta.LanguageServer.Handlers
 {
@@ -38,6 +40,7 @@ namespace Loretta.LanguageServer.Handlers
 
         public override Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
         {
+            _logger.LogCompletionRequestReceived(request.TextDocument.Uri, request.Position);
             var file = _files.GetOrReadFile(request.TextDocument.Uri);
             var position = file.Text.Lines.GetPosition(request.Position.ToLinePosition());
             var token = file.RootNode.FindToken(position);
@@ -46,137 +49,161 @@ namespace Loretta.LanguageServer.Handlers
             if (token.Parent is not SyntaxNode parent)
                 throw new Exception("Token has no parent.");
 
-            // We don't know how to complete anything that isn't an identifier or a goto label.
-            if (token.Kind() is not (SyntaxKind.IdentifierToken or SyntaxKind.GotoKeyword)
-                && !previousToken.IsKind(SyntaxKind.GotoKeyword))
-            {
-                goto fail;
-            }
-
             // We also don't provide completion for properties, methods, function names or local declarations.
-            if (parent is MemberAccessExpressionSyntax
-                       or MethodCallExpressionSyntax
-                       or FunctionNameSyntax
-                       or LocalFunctionDeclarationStatementSyntax
-                       or LocalVariableDeclarationStatementSyntax)
+            if (parent.Span.Contains(position)
+                && parent is MemberAccessExpressionSyntax
+                          or MethodCallExpressionSyntax
+                          or FunctionNameSyntax
+                          or LocalFunctionDeclarationStatementSyntax
+                          or LocalVariableDeclarationStatementSyntax)
             {
+                _logger.LogCannotProvideCompletionForToken();
                 goto fail;
             }
 
-            IScope? scope = null;
-            foreach (var node in parent.AncestorsAndSelf())
-            {
-                if (file.Script.GetScope(node) is IScope temp)
-                {
-                    scope = temp;
-                    break;
-                }
-            }
-
+            var scope = file.Script.FindScope(parent);
             if (scope is null)
             {
-                _logger.LogWarning("Highlighted token is not contained in any scopes?");
+                _logger.LogHighlightedTokenIsNotInAnyScopes();
                 return Task.FromResult(new CompletionList());
             }
 
-            var list = new List<CompletionItem>();
-            var originalScope = scope;
-
             // If we're in the goto token but outside of its span, it means we're in trivia.
-            if (token.IsKind(SyntaxKind.GotoKeyword) && position > token.Span.End)
+            if (previousToken.IsKind(SyntaxKind.GotoKeyword) || token.IsKind(SyntaxKind.GotoKeyword))
             {
-                // Find a goto label.
-                do
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var candidates = scope.GotoLabels.ToImmutableArray();
-                    foreach (var candidate in candidates)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        list.Add(new CompletionItem
-                        {
-                            Label = candidate.Name,
-                            Kind = CompletionItemKind.Reference,
-                            Preselect = candidates.Length == 1,
-                            InsertText = candidate.Name,
-                        });
-                    }
-
-                    scope = scope.Parent;
-                }
-                // We stop at the outermost function scope.
-                while (scope != null && scope.Kind != ScopeKind.Function);
-            }
-            else if (previousToken.IsKind(SyntaxKind.GotoKeyword))
-            {   
-                // Find a goto label.
-                do
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var candidates = scope.GotoLabels
-                                          .Where(label => label.Name.StartsWith(token.Text, StringComparison.Ordinal))
-                                          .ToImmutableArray();
-                    foreach (var candidate in candidates)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        list.Add(new CompletionItem
-                        {
-                            Label = candidate.Name,
-                            Kind = CompletionItemKind.Reference,
-                            Preselect = candidates.Length == 1,
-                            TextEdit = new TextEdit
-                            {
-                                Range = token.GetRange(file.Text),
-                                NewText = candidate.Name,
-                            },
-                        });
-                    }
-
-                    scope = scope.Parent;
-                }
-                while (scope != null);
+                _logger.LogGeneratingGotoCompletions();
+                SyntaxToken? partialToken = previousToken.IsKind(SyntaxKind.GotoKeyword) ? token : null;
+                var start = Stopwatch.GetTimestamp();
+                var items = CompletionList.From(GenerateGotoCandidates(file, partialToken, scope, cancellationToken));
+                var end = Stopwatch.GetTimestamp();
+                _logger.LogCompletionsGenerated(Duration.Format(end - start));
+                return Task.FromResult(items);
             }
             else
             {
-                do
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var candidates = scope.DeclaredVariables
-                                          .Where(var => var.Name.StartsWith(token.Text, StringComparison.Ordinal))
-                                          .ToImmutableArray();
-                    foreach (var candidate in candidates)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        var writes = candidate.WriteLocations.ToImmutableArray();
-                        list.Add(new CompletionItem
-                        {
-                            Label = candidate.Name,
-                            Kind = writes.Length == 1
-                                   && writes[0] is LocalFunctionDeclarationStatementSyntax
-                                                      or FunctionDeclarationStatementSyntax
-                                   ? CompletionItemKind.Function
-                                   : CompletionItemKind.Variable,
-                            Preselect = candidates.Length == 1,
-                            TextEdit = new TextEdit
-                            {
-                                Range = token.GetRange(file.Text),
-                                NewText = candidate.Name,
-                            },
-                        });
-                    }
-
-                    scope = scope.Parent;
-                }
-                while (scope != null);
+                _logger.LogGeneratingVariableCompletions();
+                SyntaxToken? partialToken = token.Span.Contains(position) ? token : null;
+                var start = Stopwatch.GetTimestamp();
+                var items = CompletionList.From(GenerateVariableCandidates(file, partialToken, scope, cancellationToken));
+                var end = Stopwatch.GetTimestamp();
+                _logger.LogCompletionsGenerated(Duration.Format(end - start));
+                return Task.FromResult(items);
             }
 
-            return Task.FromResult(CompletionList.From(list));
+            throw new InvalidOperationException("Unreacheable.");
 
         fail:
-            return Task.FromResult(new CompletionList());
+            _logger.LogFailedToGenerateCompletions();
+            return Task.FromResult(CompletionList.From())!;
+        }
+
+        private static IEnumerable<CompletionItem> GenerateGotoCandidates(
+            LspFile file,
+            SyntaxToken? partialToken,
+            IScope? scope,
+            CancellationToken cancellationToken)
+        {
+            var candidates = new HashSet<IGotoLabel>(GotoLabelByNameComparer.Instance);
+            for (var currentScope = scope; currentScope != null; currentScope = currentScope.Parent)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                foreach (var label in currentScope.GotoLabels)
+                {
+                    if (partialToken != null && !label.Name.StartsWith(partialToken.Value.Text, StringComparison.Ordinal))
+                        continue;
+                    candidates.Add(label);
+                }
+            }
+
+            foreach (var candidate in candidates)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (partialToken != null)
+                {
+                    yield return new CompletionItem
+                    {
+                        Label = candidate.Name,
+                        Kind = CompletionItemKind.Reference,
+                        Preselect = candidates.Count == 1,
+                        TextEdit = new TextEdit
+                        {
+                            Range = partialToken!.Value.GetRange(file.Text),
+                            NewText = candidate.Name,
+                        },
+                    };
+                }
+                else
+                {
+                    yield return new CompletionItem
+                    {
+                        Label = candidate.Name,
+                        Kind = CompletionItemKind.Reference,
+                        Preselect = candidates.Count == 1,
+                        InsertText = candidate.Name,
+                    };
+                }
+            }
+        }
+
+        private static IEnumerable<CompletionItem> GenerateVariableCandidates(
+            LspFile file,
+            SyntaxToken? partialToken,
+            IScope? scope,
+            CancellationToken cancellationToken)
+        {
+            var candidates = new HashSet<IVariable>(VariableByNameComparer.Instance);
+            for (var currentScope = scope; currentScope != null; currentScope = currentScope.Parent)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                foreach (var variable in currentScope.DeclaredVariables)
+                {
+                    if (partialToken != null && !variable.Name.StartsWith(partialToken.Value.Text, StringComparison.Ordinal))
+                        continue;
+                    candidates.Add(variable);
+                }
+            }
+
+            foreach (var candidate in candidates)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var writes = candidate.WriteLocations.ToImmutableArray();
+                if (partialToken != null)
+                {
+                    yield return new CompletionItem
+                    {
+                        Label = candidate.Name,
+                        Kind = writes.Length == 1
+                             && writes[0] is LocalFunctionDeclarationStatementSyntax
+                                                or FunctionDeclarationStatementSyntax
+                             ? CompletionItemKind.Function
+                             : CompletionItemKind.Variable,
+                        Preselect = candidates.Count == 1,
+                        TextEdit = new TextEdit
+                        {
+                            Range = partialToken.Value.GetRange(file.Text),
+                            NewText = candidate.Name,
+                        },
+                    };
+                }
+                else
+                {
+                    yield return new CompletionItem
+                    {
+                        Label = candidate.Name,
+                        Kind = writes.Length == 1
+                             && writes[0] is LocalFunctionDeclarationStatementSyntax
+                                                or FunctionDeclarationStatementSyntax
+                             ? CompletionItemKind.Function
+                             : CompletionItemKind.Variable,
+                        Preselect = candidates.Count == 1,
+                        InsertText = candidate.Name,
+                    };
+                }
+            }
         }
 
         // In VSCode this is sent to get more details about the highlighted completion item
