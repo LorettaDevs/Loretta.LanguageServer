@@ -71,9 +71,7 @@ namespace Loretta.LanguageServer
             await _languageServer.WaitForExit;
         }
 
-        private void RegisterServices(IServiceCollection services)
-        {
+        private void RegisterServices(IServiceCollection services) =>
             services.AddSingleton<LspFileContainer>();
-        }
     }
 }

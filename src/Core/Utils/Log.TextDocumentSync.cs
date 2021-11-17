@@ -6,8 +6,6 @@ namespace Loretta.LanguageServer
 {
     internal static partial class Log
     {
-        #region LuaTextDocumentSyncHandler
-
         [LoggerMessage(
             Level = LogLevel.Information,
             Message = "Opening document '{DocumentUri}' with language ID: {LanguageId}")]
@@ -66,7 +64,5 @@ namespace Loretta.LanguageServer
         public static partial void LogDocumentCloseReceived(
             this ILogger logger,
             DocumentUri documentUri);
-
-        #endregion LuaTextDocumentSyncHandler
     }
 }
