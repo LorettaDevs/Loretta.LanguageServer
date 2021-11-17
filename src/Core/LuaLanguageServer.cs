@@ -31,11 +31,6 @@ namespace Loretta.LanguageServer
         {
             _languageServer = LanguageServer.PreInit(options =>
             {
-                options.WithServerInfo(new OmniSharp.Extensions.LanguageServer.Protocol.Models.ServerInfo
-                {
-                    Name = "Loretta",
-                    Version = "0.0.2"
-                });
                 options.ConfigureLogging(builder =>
                 {
                     builder.AddLanguageProtocolLogging();
