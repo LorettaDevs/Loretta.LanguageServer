@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 
 // This class is based on bicep's language server's Program
 namespace Loretta.LanguageServer
@@ -17,6 +18,16 @@ namespace Loretta.LanguageServer
 
             await RunWithCancellationAsync(async cancellationToken =>
             {
+                Log.Logger = new LoggerConfiguration()
+                    .Enrich.FromLogContext()
+                    .WriteTo.File("loretta-lsp.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 5)
+#if DEBUG
+                    .MinimumLevel.Verbose()
+#else
+                    .MinimumLevel.Warning()
+#endif
+                    .CreateLogger();
+
                 // the server uses JSON-RPC over stdin & stdout to communicate,
                 // so be careful not to use console for logging!
                 var server = new LuaLanguageServer(

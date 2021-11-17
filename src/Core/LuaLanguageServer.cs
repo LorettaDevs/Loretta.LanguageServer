@@ -11,6 +11,7 @@ namespace Loretta.LanguageServer
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
     using OmniSharp.Extensions.LanguageServer.Server;
+    using Serilog;
 
     public class LuaLanguageServer
     {
@@ -35,10 +36,10 @@ namespace Loretta.LanguageServer
                     Name = "Loretta",
                     Version = "0.0.2"
                 });
-                options.AddDefaultLoggingProvider();
                 options.ConfigureLogging(builder =>
                 {
                     builder.AddLanguageProtocolLogging();
+                    builder.AddSerilog(Log.Logger);
 #if DEBUG
                     builder.SetMinimumLevel(LogLevel.Trace);
 #else
@@ -71,7 +72,17 @@ namespace Loretta.LanguageServer
             await _languageServer.WaitForExit;
         }
 
-        private void RegisterServices(IServiceCollection services) =>
+        private void RegisterServices(IServiceCollection services)
+        {
             services.AddSingleton<LspFileContainer>();
+            services.AddLogging(cfg =>
+            {
+#if DEBUG
+                cfg.SetMinimumLevel(LogLevel.Trace);
+#else
+                cfg.SetMinimumLevel(LogLevel.Information);
+#endif
+            });
+        }
     }
 }
