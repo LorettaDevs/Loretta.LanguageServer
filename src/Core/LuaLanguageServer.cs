@@ -38,7 +38,7 @@ namespace Loretta.LanguageServer
                 options.AddDefaultLoggingProvider();
                 options.ConfigureLogging(builder =>
                 {
-                    builder.Services.AddSingleton<ILoggerProvider, LanguageServerLoggerProvider>();
+                    builder.AddLanguageProtocolLogging();
 #if DEBUG
                     builder.SetMinimumLevel(LogLevel.Trace);
 #else
