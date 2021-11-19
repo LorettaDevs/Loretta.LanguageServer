@@ -106,6 +106,22 @@ namespace Loretta.LanguageServer.Handlers
                 base.Visit(node);
             }
 
+            public override void VisitNamedParameter(NamedParameterSyntax node)
+            {
+                if (_script.GetVariable(node) is IVariable variable)
+                {
+                    var modifiers = ImmutableArray.CreateBuilder<SemanticTokenModifier>();
+
+                    var isntDefinedAnywhere = variable.Declaration == null && !variable.WriteLocations.Any();
+                    if (!isntDefinedAnywhere && variable.WriteLocations.Count() <= 1)
+                        modifiers.Add(SemanticTokenModifier.Readonly);
+                    if (variable.Kind == VariableKind.Global)
+                        modifiers.Add(SemanticTokenModifier.Static);
+
+                    Push(node.Identifier, SemanticTokenType.Variable, modifiers.ToImmutable());
+                }
+            }
+
             public override void VisitIdentifierName(IdentifierNameSyntax node)
             {
                 if (_script.GetVariable(node) is IVariable variable)
