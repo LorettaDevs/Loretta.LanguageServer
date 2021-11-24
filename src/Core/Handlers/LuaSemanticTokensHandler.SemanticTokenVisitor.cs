@@ -111,13 +111,8 @@ namespace Loretta.LanguageServer.Handlers
                 if (_script.GetVariable(node) is IVariable variable)
                 {
                     var modifiers = ImmutableArray.CreateBuilder<SemanticTokenModifier>();
-
-                    var isntDefinedAnywhere = variable.Declaration == null && !variable.WriteLocations.Any();
-                    if (!isntDefinedAnywhere && variable.WriteLocations.Count() <= 1)
+                    if (variable.WriteLocations.Count() <= 1)
                         modifiers.Add(SemanticTokenModifier.Readonly);
-                    if (variable.Kind == VariableKind.Global)
-                        modifiers.Add(SemanticTokenModifier.Static);
-
                     Push(node.Identifier, SemanticTokenType.Variable, modifiers.ToImmutable());
                 }
             }
