@@ -61,7 +61,7 @@ namespace Loretta.LanguageServer.Handlers
             CancellationToken cancellationToken)
         {
             var file = _files.GetOrReadFile(identifier.TextDocument.Uri);
-            SemanticTokenVisitor.Tokenize(file.Script, file.Text, builder, file.RootNode, cancellationToken);
+            SemanticTokenVisitor.Visit(file.Script, file.Text, builder, file.RootNode, cancellationToken);
             return Task.CompletedTask;
         }
     }

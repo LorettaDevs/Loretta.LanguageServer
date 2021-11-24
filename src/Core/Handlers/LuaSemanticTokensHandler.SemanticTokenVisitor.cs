@@ -5,7 +5,6 @@ using System.Threading;
 using Loretta.CodeAnalysis;
 using Loretta.CodeAnalysis.Lua;
 using Loretta.CodeAnalysis.Lua.Syntax;
-using Loretta.CodeAnalysis.PooledObjects;
 using Loretta.CodeAnalysis.Text;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -36,7 +35,7 @@ namespace Loretta.LanguageServer.Handlers
                 _modifiers = new Stack<SemanticTokenModifier>();
             }
 
-            public static void Tokenize(
+            public static void Visit(
                 Script script,
                 SourceText text,
                 SemanticTokensBuilder builder,
@@ -129,40 +128,21 @@ namespace Loretta.LanguageServer.Handlers
                     if (isntDefinedAnywhere && variable.Kind == VariableKind.Global)
                     {
                         modifiers.Add(SemanticTokenModifier.Readonly);
-                        switch (node.Name)
-                        {
-                            // Functions
-                            case "getmetatable":
-                            case "ipairs":
-                            case "next":
-                            case "pairs":
-                            case "select":
-                            case "setmetatable":
-                            case "tonumber":
-                            case "tostring":
-                            case "type":
-                            case "print":
-                            case "assert":
-                            case "pcall":
-                            case "xpcall":
-                            case "error":
-                            case "collectgarbage":
-                                modifiers.Add(SemanticTokenModifier.Static);
-                                modifiers.Add(SemanticTokenModifier.DefaultLibrary);
-                                Push(node, SemanticTokenType.Function, modifiers.ToImmutable());
-                                return;
 
-                            // Libraries
-                            case "string":
-                            case "math":
-                            case "table":
-                            case "coroutine":
-                            case "io":
-                            case "debug":
-                                modifiers.Add(SemanticTokenModifier.Static);
-                                modifiers.Add(SemanticTokenModifier.DefaultLibrary);
-                                Push(node, SemanticTokenType.Type, modifiers.ToImmutable());
-                                return;
+                        if (LspConstants.StandardLibraryFunctions.Contains(variable.Name))
+                        {
+                            modifiers.Add(SemanticTokenModifier.Static);
+                            modifiers.Add(SemanticTokenModifier.DefaultLibrary);
+                            Push(node, SemanticTokenType.Function, modifiers.ToImmutable());
+                            return;
+                        }
+
+                        if (LspConstants.StandardLibraryTypes.ContainsKey(variable.Name))
+                        {
+                            modifiers.Add(SemanticTokenModifier.Static);
+                            modifiers.Add(SemanticTokenModifier.DefaultLibrary);
+                            Push(node, SemanticTokenType.Type, modifiers.ToImmutable());
+                            return;
                         }
                     }
 
@@ -173,6 +153,59 @@ namespace Loretta.LanguageServer.Handlers
 
                     Push(node.Identifier, SemanticTokenType.Variable, modifiers.ToImmutable());
                 }
+            }
+
+            public override void VisitSimpleFunctionName(SimpleFunctionNameSyntax node)
+            {
+                if (_script.GetVariable(node) is IVariable variable)
+                {
+                    var modifiers = ImmutableArray.CreateBuilder<SemanticTokenModifier>();
+
+                    // Standard library hack
+                    // This is REALLY BAD and I am NOT pround of it.
+                    var isntDefinedAnywhere = variable.Declaration == null && !variable.WriteLocations.Any();
+                    if (isntDefinedAnywhere && variable.Kind == VariableKind.Global)
+                    {
+                        modifiers.Add(SemanticTokenModifier.Readonly);
+
+                        if (LspConstants.StandardLibraryFunctions.Contains(variable.Name))
+                        {
+                            modifiers.Add(SemanticTokenModifier.Static);
+                            modifiers.Add(SemanticTokenModifier.DefaultLibrary);
+                            Push(node, SemanticTokenType.Function, modifiers.ToImmutable());
+                            return;
+                        }
+
+                        if (LspConstants.StandardLibraryTypes.ContainsKey(variable.Name))
+                        {
+                            modifiers.Add(SemanticTokenModifier.Static);
+                            modifiers.Add(SemanticTokenModifier.DefaultLibrary);
+                            Push(node, SemanticTokenType.Type, modifiers.ToImmutable());
+                            return;
+                        }
+                    }
+
+                    if (!isntDefinedAnywhere && variable.WriteLocations.Count() <= 1)
+                        modifiers.Add(SemanticTokenModifier.Readonly);
+                    if (variable.Kind == VariableKind.Global)
+                        modifiers.Add(SemanticTokenModifier.Static);
+
+                    Push(node.Name, SemanticTokenType.Variable, modifiers.ToImmutable());
+                }
+            }
+
+            public override void VisitMemberFunctionName(MemberFunctionNameSyntax node)
+            {
+                Visit(node.BaseName);
+                VisitToken(node.DotToken);
+                Push(node.Name, SemanticTokenType.Property);
+            }
+
+            public override void VisitMethodFunctionName(MethodFunctionNameSyntax node)
+            {
+                Visit(node.BaseName);
+                VisitToken(node.ColonToken);
+                Push(node.Name, SemanticTokenType.Method);
             }
 
             public override void VisitMethodCallExpression(MethodCallExpressionSyntax node)
