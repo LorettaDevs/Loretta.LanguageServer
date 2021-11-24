@@ -4,13 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Loretta.CodeAnalysis;
 using Loretta.CodeAnalysis.Lua;
-using Loretta.CodeAnalysis.Text;
 using Loretta.LanguageServer.Workspace;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Loretta.LanguageServer.Handlers
 {
@@ -53,6 +51,18 @@ namespace Loretta.LanguageServer.Handlers
             if (script.GetVariable(parent) is IVariable variable)
             {
                 var highlights = new List<DocumentHighlight>();
+                // Iteration and parameter variables don't have a write on their declaration
+                // as the write is implicit, so we add a write highlight to them on their
+                // declaration.
+                if (variable.Kind is VariableKind.Iteration or VariableKind.Parameter
+                    && variable.Declaration is SyntaxNode declaration)
+                {
+                    highlights.Add(new DocumentHighlight
+                    {
+                        Kind = DocumentHighlightKind.Write,
+                        Range = declaration.Span.ToRange(file.Text)
+                    });
+                }
                 foreach (var read in variable.ReadLocations)
                 {
                     if (file.SyntaxTree == read.SyntaxTree)
@@ -60,7 +70,7 @@ namespace Loretta.LanguageServer.Handlers
                         highlights.Add(new DocumentHighlight
                         {
                             Kind = DocumentHighlightKind.Read,
-                            Range = toRange(file, read.Span)
+                            Range = read.Span.ToRange(file.Text)
                         });
                     }
                 }
@@ -74,7 +84,7 @@ namespace Loretta.LanguageServer.Handlers
                             highlights.Add(new DocumentHighlight
                             {
                                 Kind = DocumentHighlightKind.Write,
-                                Range = toRange(file, nameNode.Span)
+                                Range = nameNode.Span.ToRange(file.Text)
                             });
                         }
                     }
@@ -90,7 +100,7 @@ namespace Loretta.LanguageServer.Handlers
                     highlights.Add(new DocumentHighlight
                     {
                         Kind = DocumentHighlightKind.Text,
-                        Range = toRange(file, label.LabelSyntax.Span)
+                        Range = label.LabelSyntax.Span.ToRange(file.Text)
                     });
                 }
                 foreach (var jump in label.JumpSyntaxes)
@@ -98,7 +108,7 @@ namespace Loretta.LanguageServer.Handlers
                     highlights.Add(new DocumentHighlight
                     {
                         Kind = DocumentHighlightKind.Text,
-                        Range = toRange(file, jump.Span)
+                        Range = jump.Span.ToRange(file.Text)
                     });
                 }
                 return Task.FromResult<DocumentHighlightContainer?>(
@@ -116,13 +126,11 @@ namespace Loretta.LanguageServer.Handlers
             // Else return null.
             return Task.FromResult<DocumentHighlightContainer?>(null);
 
-            static Range toRange(LspFile file, TextSpan span) =>
-                file.Text.Lines.GetLinePositionSpan(span).ToRange();
             static DocumentHighlight kwHighlight(LspFile file, SyntaxToken keyword) =>
                 new DocumentHighlight
                 {
                     Kind = DocumentHighlightKind.Text,
-                    Range = toRange(file, keyword.Span),
+                    Range = keyword.Span.ToRange(file.Text),
                 };
         }
     }
