@@ -20,7 +20,7 @@ namespace Loretta.LanguageServer
             {
                 Log.Logger = new LoggerConfiguration()
                     .Enrich.FromLogContext()
-                    .WriteTo.File("loretta-lsp.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 5)
+                    .WriteTo.File(Path.Combine(Path.GetTempPath(), "loretta-lsp.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 5)
 #if DEBUG
                     .MinimumLevel.Verbose()
 #else
