@@ -35,11 +35,8 @@ namespace Loretta.LanguageServer.Handlers
             {
                 DocumentSelector = LspConstants.DocumentSelector,
                 Legend = new(),
-                //Full = new SemanticTokensCapabilityRequestFull
-                //{
-                //    Delta = true,
-                //},
-                Range = true
+                Full = true,
+                Range = false
             };
         }
 
