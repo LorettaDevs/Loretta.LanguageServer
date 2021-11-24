@@ -146,7 +146,7 @@ namespace Loretta.LanguageServer.Handlers
                         }
                     }
 
-                    if (!isntDefinedAnywhere && variable.WriteLocations.Count() <= 1)
+                    if (variable.WriteLocations.Count() <= 1)
                         modifiers.Add(SemanticTokenModifier.Readonly);
                     if (variable.Kind == VariableKind.Global)
                         modifiers.Add(SemanticTokenModifier.Static);
@@ -185,7 +185,7 @@ namespace Loretta.LanguageServer.Handlers
                         }
                     }
 
-                    if (!isntDefinedAnywhere && variable.WriteLocations.Count() <= 1)
+                    if (variable.WriteLocations.Count() <= 1)
                         modifiers.Add(SemanticTokenModifier.Readonly);
                     if (variable.Kind == VariableKind.Global)
                         modifiers.Add(SemanticTokenModifier.Static);
