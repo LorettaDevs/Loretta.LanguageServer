@@ -49,7 +49,7 @@ namespace Loretta.LanguageServer
                        .WithHandler<LuaCompletionHandler>()
                        .WithHandler<LuaSemanticTokensHandler>()
                        // TODO: DocumentSymbolHandler
-                       // TODO: ReferencesHandler
+                       .WithHandler<LuaReferencesHandler>()
                        // TODO: RenameHandler
                        // TODO: HoverHandler
                        // TODO: CodeActionsHandler
