@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Loretta.CodeAnalysis.Lua;
 
-namespace Loretta.LanguageServer.Utils
+namespace Loretta.LanguageServer
 {
     internal class VariableByNameComparer : IEqualityComparer<IVariable>
     {
