@@ -33,12 +33,14 @@ namespace Loretta.LanguageServer.Handlers
             DefinitionParams request,
             CancellationToken cancellationToken)
         {
-            var file = _files.GetOrReadFile(request.TextDocument.Uri);
-            var position = file.Text.Lines.GetPosition(request.Position.ToLinePosition());
-            var token = file.RootNode.FindToken(position);
-            var parent = token.Parent;
-            if (parent is null)
-                throw new Exception("Token parent is null.");
+            PositionHandlerHelpers.GetEverything(
+                _files,
+                request.TextDocument.Uri,
+                request.Position,
+                out var file,
+                out _,
+                out _,
+                out var parent);
 
             if (file.Script.GetVariable(parent) is IVariable variable)
             {

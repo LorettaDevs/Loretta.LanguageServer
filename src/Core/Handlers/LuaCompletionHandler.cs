@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Loretta.CodeAnalysis;
 using Loretta.CodeAnalysis.Lua;
 using Loretta.CodeAnalysis.Lua.Syntax;
-using Loretta.LanguageServer.Utils;
 using Loretta.LanguageServer.Workspace;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -41,13 +40,15 @@ namespace Loretta.LanguageServer.Handlers
         public override Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
         {
             _logger.LogCompletionRequestReceived(request.TextDocument.Uri, request.Position);
-            var file = _files.GetOrReadFile(request.TextDocument.Uri);
-            var position = file.Text.Lines.GetPosition(request.Position.ToLinePosition());
-            var token = file.RootNode.FindToken(position);
+            PositionHandlerHelpers.GetEverything(
+                _files,
+                request.TextDocument.Uri,
+                request.Position,
+                out var file,
+                out var position,
+                out var token,
+                out var parent);
             var previousToken = token.GetPreviousToken();
-
-            if (token.Parent is not SyntaxNode parent)
-                throw new Exception("Token has no parent.");
 
             // We also don't provide completion for properties, methods, function names or local declarations.
             if (parent.Span.Contains(position)

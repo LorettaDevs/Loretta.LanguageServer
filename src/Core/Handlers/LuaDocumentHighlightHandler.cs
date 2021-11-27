@@ -39,14 +39,15 @@ namespace Loretta.LanguageServer.Handlers
             DocumentHighlightParams request,
             CancellationToken cancellationToken)
         {
-            var file = _files.GetOrReadFile(request.TextDocument.Uri);
-            var token = file.GetTokenAtPosition(request.Position);
-            var parent = token.Parent;
+            PositionHandlerHelpers.GetEverything(
+                _files,
+                request.TextDocument.Uri,
+                request.Position,
+                out var file,
+                out _,
+                out var token,
+                out var parent);
             var script = file.Script;
-
-            // How is parent null? I don't know, but we need to check this case.
-            if (parent is null)
-                throw new System.Exception("Token parent is null???");
 
             if (script.GetVariable(parent) is IVariable variable)
             {
