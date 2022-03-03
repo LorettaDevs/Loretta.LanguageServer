@@ -105,7 +105,7 @@ namespace Loretta.LanguageServer.Handlers
             CancellationToken cancellationToken)
         {
             var candidates = new HashSet<IGotoLabel>(GotoLabelByNameComparer.Instance);
-            for (var currentScope = scope; currentScope != null; currentScope = currentScope.Parent)
+            for (var currentScope = scope; currentScope != null; currentScope = currentScope.ContainingScope)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -155,7 +155,7 @@ namespace Loretta.LanguageServer.Handlers
             CancellationToken cancellationToken)
         {
             var candidates = new HashSet<IVariable>(VariableByNameComparer.Instance);
-            for (var currentScope = scope; currentScope != null; currentScope = currentScope.Parent)
+            for (var currentScope = scope; currentScope != null; currentScope = currentScope.ContainingScope)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 

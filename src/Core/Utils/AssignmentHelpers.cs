@@ -55,7 +55,7 @@ namespace Loretta.LanguageServer
                 }
             }
 
-            static Option<SyntaxNode> getFromList(IVariable variable, IEnumerable<PrefixExpressionSyntax> variables)
+            static Option<SyntaxNode> getFromList(IVariable variable, IEnumerable<SyntaxNode> variables)
             {
                 var variablesArr = variables.ToImmutableArray();
                 var idx = GetIndexOfVariableInList(variable, variablesArr);
@@ -73,7 +73,7 @@ namespace Loretta.LanguageServer
                 case SyntaxKind.LocalVariableDeclarationStatement:
                 {
                     var localVarDecl = (LocalVariableDeclarationStatementSyntax) assignment;
-                    var valuesArr = localVarDecl.Values.ToImmutableArray();
+                    var valuesArr = localVarDecl.EqualsValues?.Values.ToImmutableArray() ?? ImmutableArray<ExpressionSyntax>.Empty;
                     var idx = GetIndexOfVariableInList(variable, localVarDecl.Names);
                     if (idx < valuesArr.Length)
                         return valuesArr[idx];
@@ -84,7 +84,7 @@ namespace Loretta.LanguageServer
                 case SyntaxKind.AssignmentStatement:
                 {
                     var assignmentStatement = (AssignmentStatementSyntax) assignment;
-                    var valuesArr = assignmentStatement.Values.ToImmutableArray();
+                    var valuesArr = assignmentStatement.EqualsValues?.Values.ToImmutableArray() ?? ImmutableArray<ExpressionSyntax>.Empty;
                     var idx = GetIndexOfVariableInList(variable, assignmentStatement.Variables);
                     if (idx < valuesArr.Length)
                         return valuesArr[idx];
@@ -111,13 +111,18 @@ namespace Loretta.LanguageServer
             }
         }
 
-        private static int GetIndexOfVariableInList(IVariable variable, IEnumerable<PrefixExpressionSyntax> variables)
+        private static int GetIndexOfVariableInList(IVariable variable, IEnumerable<SyntaxNode> variables)
         {
             var idx = 0; var found = -1;
             foreach (var variableSyntax in variables)
             {
                 if (variableSyntax is IdentifierNameSyntax identifierName
                     && variable.Name.Equals(identifierName.Name, StringComparison.Ordinal))
+                {
+                    found = idx;
+                }
+                else if (variableSyntax is LocalDeclarationNameSyntax localDeclarationName
+                    && variable.Name.Equals(localDeclarationName.Name, StringComparison.Ordinal))
                 {
                     found = idx;
                 }
