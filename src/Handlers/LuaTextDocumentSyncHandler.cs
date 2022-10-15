@@ -60,11 +60,11 @@ namespace Loretta.LanguageServer.Handlers
                 return Unit.Task;
             }
 
-            var start = Stopwatch.GetTimestamp();
+            var start = Performance.GetTimestamp();
             var file = _files.GetOrAddFile(request.TextDocument.Uri, request.TextDocument.Text).Value;
-            var addEnd = Stopwatch.GetTimestamp();
+            var addEnd = Performance.GetTimestamp();
             PublishDiagnostics(file);
-            var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+            var diagnosticsPushEnd = Performance.GetTimestamp();
             _logger.LogFinishedUpdatingDocument(
                 Duration.Format(diagnosticsPushEnd - start),
                 Duration.Format(addEnd - start),
@@ -79,13 +79,13 @@ namespace Loretta.LanguageServer.Handlers
             _logger.LogDocumentChangeReceived(request.TextDocument.Uri);
             if (_files.TryGetFile(request.TextDocument.Uri, out var file))
             {
-                var start = Stopwatch.GetTimestamp();
+                var start = Performance.GetTimestamp();
                 file = _files.UpdateFile(
                     file,
                     request.ContentChanges.Select(change => change.ToTextChange(file.Text)));
-                var updateEnd = Stopwatch.GetTimestamp();
+                var updateEnd = Performance.GetTimestamp();
                 PublishDiagnostics(file);
-                var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+                var diagnosticsPushEnd = Performance.GetTimestamp();
                 _logger.LogFinishedUpdatingDocument(
                     Duration.Format(diagnosticsPushEnd - start),
                     Duration.Format(updateEnd - start),
@@ -111,11 +111,11 @@ namespace Loretta.LanguageServer.Handlers
 
             if (_files.TryGetFile(request.TextDocument.Uri, out var file))
             {
-                var start = Stopwatch.GetTimestamp();
+                var start = Performance.GetTimestamp();
                 file = _files.UpdateFile(file, request.Text);
-                var updateEnd = Stopwatch.GetTimestamp();
+                var updateEnd = Performance.GetTimestamp();
                 PublishDiagnostics(file);
-                var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+                var diagnosticsPushEnd = Performance.GetTimestamp();
                 _logger.LogFinishedUpdatingDocument(
                     Duration.Format(diagnosticsPushEnd - start),
                     Duration.Format(updateEnd - start),
@@ -134,15 +134,15 @@ namespace Loretta.LanguageServer.Handlers
         {
             _logger.LogDocumentCloseReceived(request.TextDocument.Uri);
 
-            var start = Stopwatch.GetTimestamp();
+            var start = Performance.GetTimestamp();
             _files.RemoveFile(request.TextDocument.Uri);
-            var removeEnd = Stopwatch.GetTimestamp();
+            var removeEnd = Performance.GetTimestamp();
             _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
             {
                 Uri = request.TextDocument.Uri,
                 Diagnostics = new Container<Diagnostic>()
             });
-            var diagnosticsPushEnd = Stopwatch.GetTimestamp();
+            var diagnosticsPushEnd = Performance.GetTimestamp();
             _logger.LogFinishedUpdatingDocument(
                 Duration.Format(diagnosticsPushEnd - start),
                 Duration.Format(removeEnd - start),

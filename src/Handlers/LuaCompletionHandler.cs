@@ -74,9 +74,9 @@ namespace Loretta.LanguageServer.Handlers
             {
                 _logger.LogGeneratingGotoCompletions();
                 SyntaxToken? partialToken = previousToken.IsKind(SyntaxKind.GotoKeyword) ? token : null;
-                var start = Stopwatch.GetTimestamp();
+                var start = Performance.GetTimestamp();
                 var items = CompletionList.From(GenerateGotoCandidates(file, partialToken, scope, cancellationToken));
-                var end = Stopwatch.GetTimestamp();
+                var end = Performance.GetTimestamp();
                 _logger.LogCompletionsGenerated(Duration.Format(end - start));
                 return Task.FromResult(items);
             }
@@ -84,9 +84,9 @@ namespace Loretta.LanguageServer.Handlers
             {
                 _logger.LogGeneratingVariableCompletions();
                 SyntaxToken? partialToken = token.Span.Contains(position) ? token : null;
-                var start = Stopwatch.GetTimestamp();
+                var start = Performance.GetTimestamp();
                 var items = CompletionList.From(GenerateVariableCandidates(file, partialToken, scope, cancellationToken));
-                var end = Stopwatch.GetTimestamp();
+                var end = Performance.GetTimestamp();
                 _logger.LogCompletionsGenerated(Duration.Format(end - start));
                 return Task.FromResult(items);
             }
