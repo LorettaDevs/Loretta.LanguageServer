@@ -52,11 +52,11 @@ namespace Loretta.LanguageServer.Handlers
                     if (definitionFile.HasValue)
                     {
                         return Task.FromResult(LocationOrLocationLinks.From(
-                          new Location
-                          {
-                              Uri = definitionFile.Value.DocumentUri,
-                              Range = definitionFile.Value.Text.Lines.GetLinePositionSpan(declaration.Span).ToRange(),
-                          }));
+                            new Location
+                            {
+                                Uri = definitionFile.Value.DocumentUri,
+                                Range = definitionFile.Value.Text.Lines.GetLinePositionSpan(declaration.Span).ToRange(),
+                            }));
                     }
                 }
                 else
