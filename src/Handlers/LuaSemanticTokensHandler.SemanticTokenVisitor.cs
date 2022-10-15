@@ -49,8 +49,12 @@ namespace Loretta.LanguageServer.Handlers
             private void Push(
                 SyntaxToken token,
                 SemanticTokenType tokenType,
-                IEnumerable<SemanticTokenModifier>? tokenModifiers = null) =>
+                IEnumerable<SemanticTokenModifier>? tokenModifiers = null)
+            {
+                if (token.IsKind(SyntaxKind.None))
+                    return;
                 Push(token.Span, tokenType, tokenModifiers);
+            }
 
             private void Push(
                 SyntaxNode node,
@@ -241,6 +245,64 @@ namespace Loretta.LanguageServer.Handlers
                 Visit(node.Expression);
                 VisitToken(node.DotSeparator);
                 Push(node.MemberName, SemanticTokenType.Property);
+            }
+
+            public override void VisitSimpleTypeName(SimpleTypeNameSyntax node)
+            {
+                Push(node.IdentifierToken, SemanticTokenType.Type);
+                if (node.TypeArgumentList is not null)
+                    Visit(node.TypeArgumentList);
+            }
+
+            public override void VisitCompositeTypeName(CompositeTypeNameSyntax node)
+            {
+                Visit(node.Base);
+                Push(node.IdentifierToken, SemanticTokenType.Type);
+                if (node.TypeArgumentList is not null)
+                    Visit(node.TypeArgumentList);
+            }
+
+            public override void VisitTableTypeProperty(TableTypePropertySyntax node)
+            {
+                Push(node.Identifier, SemanticTokenType.Property);
+                Visit(node.ValueType);
+            }
+
+            public override void VisitTypeArgumentList(TypeArgumentListSyntax node)
+            {
+                foreach (var type in node.Arguments)
+                {
+                    Push(type, SemanticTokenType.Type);
+                }
+            }
+
+            public override void VisitTypeParameter(TypeParameterSyntax node)
+            {
+                Push(node.Identifier, SemanticTokenType.Type);
+                Push(node.DotDotDotToken, SemanticTokenType.Type);
+                if (node.EqualsType is not null)
+                    Push(node.EqualsType.Type, SemanticTokenType.Type);
+            }
+
+            public override void VisitUnionType(UnionTypeSyntax node)
+            {
+                Visit(node.Left);
+                Push(node.PipeToken, SemanticTokenType.Operator);
+                Visit(node.Right);
+            }
+
+            public override void VisitIntersectionType(IntersectionTypeSyntax node)
+            {
+                Visit(node.Left);
+                Push(node.AmpersandToken, SemanticTokenType.Operator);
+                Visit(node.Right);
+            }
+
+            public override void VisitTypeCastExpression(TypeCastExpressionSyntax node)
+            {
+                Visit(node.Expression);
+                Push(node.ColonColonToken, SemanticTokenType.Operator);
+                Visit(node.Type);
             }
 
             public override void VisitToken(SyntaxToken token)
