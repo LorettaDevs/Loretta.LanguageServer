@@ -1,13 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Threading;
+﻿using System.Runtime.InteropServices;
 using Loretta.CodeAnalysis;
 using Loretta.CodeAnalysis.Lua;
 using Loretta.CodeAnalysis.Text;
 using Loretta.LanguageServer.Workspace;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Loretta.LanguageServer
 {
